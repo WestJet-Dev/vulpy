@@ -1,74 +1,193 @@
-# For most projects, this workflow file will not need changing; you simply need
-# to commit it to your repository.
-#
-# You may wish to alter this file to override the set of languages analyzed,
-# or to provide custom queries or build logic.
-#
-# ******** NOTE ********
-# We have attempted to detect the languages in your repository. Please check
-# the `language` matrix defined below to confirm you have the correct set of
-# supported CodeQL languages.
-#
-name: "CodeQL"
+# # For most projects, this workflow file will not need changing; you simply need
+# # to commit it to your repository.
+# #
+# # You may wish to alter this file to override the set of languages analyzed,
+# # or to provide custom queries or build logic.
+# #
+# # ******** NOTE ********
+# # We have attempted to detect the languages in your repository. Please check
+# # the `language` matrix defined below to confirm you have the correct set of
+# # supported CodeQL languages.
+# #
+# name: "CodeQL"
+
+# on:
+#   push:
+#     branches: [ "master" ]
+#   pull_request:
+#     # The branches below must be a subset of the branches above
+#     branches: [ "master" ]
+
+# jobs:
+#   analyze:
+#     name: Analyze
+#     runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+#     permissions:
+#       actions: read
+#       contents: read
+#       security-events: write
+
+#     strategy:
+#       fail-fast: false
+#       matrix:
+#         language: [ 'javascript', 'python' ]
+#         # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
+#         # Use only 'java' to analyze code written in Java, Kotlin or both
+#         # Use only 'javascript' to analyze code written in JavaScript, TypeScript or both
+#         # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
+
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v3
+
+#     # Initializes the CodeQL tools for scanning.
+#     - name: Initialize CodeQL
+#       uses: github/codeql-action/init@v2
+#       with:
+#         languages: ${{ matrix.language }}
+#         # If you wish to specify custom queries, you can do so here or in a config file.
+#         # By default, queries listed here will override any specified in a config file.
+#         # Prefix the list here with "+" to use these queries and those in the config file.
+
+#         # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+#         queries: security-extended,security-and-quality
+
+
+#     # Autobuild attempts to build any compiled languages  (C/C++, C#, Go, or Java).
+#     # If this step fails, then you should remove it and run the build manually (see below)
+#     - name: Autobuild
+#       uses: github/codeql-action/autobuild@v2
+
+#     # ℹ️ Command-line programs to run using the OS shell.
+#     # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+
+#     #   If the Autobuild fails above, remove it and uncomment the following three lines.
+#     #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
+
+#     # - run: |
+#     #     echo "Run, Build Application using script"
+#     #     ./location_of_script_within_repo/buildscript.sh
+
+#     - name: Perform CodeQL Analysis
+#       uses: github/codeql-action/analyze@v2
+#       with:
+#         category: "/language:${{matrix.language}}"
+
+
+name: Docker Image CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [ "master" ]
+    branches: [ "main" ]
 
 jobs:
-  analyze:
-    name: Analyze
-    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'javascript', 'python' ]
-        # CodeQL supports [ 'cpp', 'csharp', 'go', 'java', 'javascript', 'python', 'ruby' ]
-        # Use only 'java' to analyze code written in Java, Kotlin or both
-        # Use only 'javascript' to analyze code written in JavaScript, TypeScript or both
-        # Learn more about CodeQL language support at https://aka.ms/codeql-docs/language-support
+  build:
+
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
 
-    # Initializes the CodeQL tools for scanning.
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
-      with:
-        languages: ${{ matrix.language }}
-        # If you wish to specify custom queries, you can do so here or in a config file.
-        # By default, queries listed here will override any specified in a config file.
-        # Prefix the list here with "+" to use these queries and those in the config file.
+  scan-pull-request:
+    needs: build
+    runs-on: ubuntu-latest
+    # A pull request needs to be approved, before Frogbot scans it. Any GitHub user who is associated with the
+    # "frogbot" GitHub environment can approve the pull request to be scanned.
+    environment: frogbot
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
-        # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
-        queries: security-extended,security-and-quality
+      # Install prerequisites
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.x"
+
+      - uses: jfrog/frogbot@v2
+        env:
+          # [Mandatory]
+          # JFrog platform URL
+          JF_URL: ${{ secrets.JF_URL }}
+
+          # [Mandatory if JF_USER and JF_PASSWORD are not provided]
+          # JFrog access token with 'read' permissions on Xray service
+          JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
+
+          # [Mandatory if JF_ACCESS_TOKEN is not provided]
+          # JFrog username with 'read' permissions for Xray. Must be provided with JF_PASSWORD
+          # JF_USER: ${{ secrets.JF_USER }}
+
+          # [Mandatory if JF_ACCESS_TOKEN is not provided]
+          # JFrog password. Must be provided with JF_USER
+          # JF_PASSWORD: ${{ secrets.JF_PASSWORD }}
+
+          # [Mandatory]
+          # The GitHub token automatically generated for the job
+          JF_GIT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # [Optional, default: https://api.github.com]
+          # API endpoint to GitHub
+          # JF_GIT_API_ENDPOINT: https://github.example.com
+
+          # [Optional]
+          # If the machine that runs Frogbot has no access to the internet, set the name of a remote repository
+          # in Artifactory, which proxies https://releases.jfrog.io
+          # The 'frogbot' executable and other tools it needs will be downloaded through this repository.
+          # JF_RELEASES_REPO: ""
 
 
-    # Autobuild attempts to build any compiled languages  (C/C++, C#, Go, or Java).
-    # If this step fails, then you should remove it and run the build manually (see below)
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
 
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+          ##########################################################################
+          ##   If your project uses a 'frogbot-config.yml' file, you can define   ##
+          ##   the following variables inside the file, instead of here.          ##
+          ##########################################################################
 
-    #   If the Autobuild fails above, remove it and uncomment the following three lines.
-    #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
+          # [Optional, default: "."]
+          # Relative path to the root of the project in the Git repository
+          # JF_WORKING_DIR: path/to/project/dir
 
-    # - run: |
-    #     echo "Run, Build Application using script"
-    #     ./location_of_script_within_repo/buildscript.sh
+          # [Optional]
+          # Xray Watches. Learn more about them here: https://www.jfrog.com/confluence/display/JFROG/Configuring+Xray+Watches
+          # JF_WATCHES: <watch-1>,<watch-2>...<watch-n>
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
-      with:
-        category: "/language:${{matrix.language}}"
+          # [Optional]
+          # JFrog project. Learn more about it here: https://www.jfrog.com/confluence/display/JFROG/Projects
+          # JF_PROJECT: <project-key>
+
+          # [Optional, default: "FALSE"]
+          # Displays all existing vulnerabilities, including the ones that were added by the pull request.
+          # JF_INCLUDE_ALL_VULNERABILITIES: "TRUE"
+
+          # [Optional, default: "TRUE"]
+          # Fails the Frogbot task if any security issue is found.
+          # JF_FAIL: "FALSE"
+
+          # [Optional]
+          # Relative path to a Pip requirements.txt file. If not set, the python project's dependencies are determined and scanned using the project setup.py file.
+          # JF_REQUIREMENTS_FILE: ""
+
+          # [Optional]
+          # Frogbot will download the project dependencies if they're not cached locally. To download the
+          # dependencies from a virtual repository in Artifactory, set the name of the repository. There's no
+          # need to set this value, if it is set in the frogbot-config.yml file.
+          # JF_DEPS_REPO: ""
+
+          # [Optional, Default: "FALSE"]
+          # If TRUE, Frogbot creates a single pull request with all the fixes.
+          # If FALSE, Frogbot creates a separate pull request for each fix.
+          # JF_GIT_AGGREGATE_FIXES: "FALSE"
+
+          # [Optional, Default: "FALSE"]
+          # Handle vulnerabilities with fix versions only
+          # JF_FIXABLE_ONLY: "TRUE"
+
+          # [Optional]
+          # Set the minimum severity for vulnerabilities that should be fixed and commented on in pull requests
+          # The following values are accepted: Low, Medium, High or Critical
+          # JF_MIN_SEVERITY: ""
