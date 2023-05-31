@@ -1,2 +1,2 @@
 FROM python:3.12.0b1-buster
-ADD README.RST . 
+ADD README.rst . 
