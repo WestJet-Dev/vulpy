@@ -74,14 +74,13 @@
 #         category: "/language:${{matrix.language}}"
 
 
-name: Docker Image CI
+name: JFrog XRAY Scan
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-
 jobs:
 
 #   build:
