@@ -78,7 +78,7 @@ name: JFrog XRAY Scan
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "dev123" ]
   pull_request:
     branches: [ "master" ]
 jobs:
